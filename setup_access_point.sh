@@ -15,11 +15,12 @@ fi
 
 # Install required packages
 apt-get update
-apt-get install -y hostapd dnsmasq
+apt-get install -y hostapd dnsmasq openssh-server
 
 # Stop services to prevent conflicts
 systemctl stop hostapd
 systemctl stop dnsmasq
+systemctl stop ssh
 
 # Remove any existing dnsmasq leases
 rm -f /var/lib/misc/dnsmasq.leases
@@ -123,6 +124,10 @@ iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan1 -o wlan0 -j ACCEPT
 iptables -A FORWARD -i wlan0 -o wlan1 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
+# Allow SSH traffic
+iptables -A INPUT -i wlan1 -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -i wlan0 -p tcp --dport 22 -j ACCEPT
+
 # Allow DNS and DHCP traffic
 iptables -A INPUT -i wlan1 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i wlan1 -p udp --dport 67:68 -j ACCEPT
@@ -135,10 +140,43 @@ netfilter-persistent save
 # Configure hostapd to use our config file
 echo "DAEMON_CONF=\"/etc/hostapd/hostapd.conf\"" >/etc/default/hostapd
 
+# Configure SSH server
+cat >/etc/ssh/sshd_config <<EOF
+Port 22
+Protocol 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+UsePrivilegeSeparation yes
+KeyRegenerationInterval 3600
+ServerKeyBits 1024
+SyslogFacility AUTH
+LogLevel INFO
+LoginGraceTime 120
+PermitRootLogin yes
+StrictModes yes
+RSAAuthentication yes
+PubkeyAuthentication yes
+IgnoreRhosts yes
+RhostsRSAAuthentication no
+HostbasedAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+X11Forwarding yes
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server
+UsePAM yes
+EOF
+
 # Start services
 systemctl unmask hostapd
 systemctl enable hostapd
 systemctl enable dnsmasq
+systemctl enable ssh
 
 # Check hostapd configuration
 echo "Checking hostapd configuration..."
@@ -161,6 +199,14 @@ if [ $? -eq 0 ]; then
         journalctl -u dnsmasq -n 50
         echo "Trying to start dnsmasq manually..."
         dnsmasq -C /etc/dnsmasq.conf --no-daemon
+        exit 1
+    fi
+
+    echo "Starting SSH service..."
+    systemctl start ssh
+    if [ $? -ne 0 ]; then
+        echo "Failed to start SSH service. Checking systemd logs..."
+        journalctl -u ssh -n 50
         exit 1
     fi
 else
@@ -191,6 +237,14 @@ systemctl status dnsmasq
 echo "Checking dnsmasq logs..."
 journalctl -u dnsmasq -n 50
 
+# Check SSH status
+echo "Checking SSH status..."
+systemctl status ssh
+
+# Check SSH logs
+echo "Checking SSH logs..."
+journalctl -u ssh -n 50
+
 # Check network interfaces
 echo "Checking network interfaces..."
 ip addr show wlan1
@@ -210,3 +264,9 @@ echo "Password: superrobot"
 echo "Note: wlan0 is used for normal WiFi connection, wlan1 is used for the access point"
 echo "Clients should receive IP addresses in the range 192.168.4.2-192.168.4.20"
 echo "To check connected devices, run: arp -a"
+echo ""
+echo "SSH Access:"
+echo "1. Connect to the 'robot' WiFi network"
+echo "2. SSH to 192.168.4.1 using: ssh root@192.168.4.1"
+echo "3. The default root password is required for first login"
+echo "4. For security, consider changing the root password after first login"
