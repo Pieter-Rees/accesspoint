@@ -59,10 +59,20 @@ ieee80211d=1
 ieee80211h=1
 EOF
 
-# Configure dnsmasq
+# Configure dnsmasq with more detailed settings
 cat >/etc/dnsmasq.conf <<EOF
 interface=wlan1
 dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+dhcp-option=3,192.168.4.1
+dhcp-option=6,8.8.8.8,8.8.4.4
+server=8.8.8.8
+server=8.8.4.4
+no-resolv
+no-poll
+log-queries
+log-dhcp
+listen-address=192.168.4.1
+bind-interfaces
 EOF
 
 # Configure network interface
@@ -71,7 +81,12 @@ auto wlan1
 iface wlan1 inet static
     address 192.168.4.1
     netmask 255.255.255.0
+    network 192.168.4.0
+    broadcast 192.168.4.255
 EOF
+
+# Set up the IP address immediately
+ip addr add 192.168.4.1/24 dev wlan1
 
 # Enable IP forwarding
 echo 1 >/proc/sys/net/ipv4/ip_forward
@@ -106,7 +121,14 @@ if [ $? -eq 0 ]; then
         journalctl -u hostapd -n 50
         exit 1
     fi
+
+    echo "Starting dnsmasq service..."
     systemctl start dnsmasq
+    if [ $? -ne 0 ]; then
+        echo "Failed to start dnsmasq service. Checking systemd logs..."
+        journalctl -u dnsmasq -n 50
+        exit 1
+    fi
 else
     echo "Error: hostapd failed to start in debug mode"
     echo "Please check the error messages above"
@@ -121,5 +143,6 @@ fi
 
 echo "Access point setup complete!"
 echo "SSID: robot"
-echo "Password: robot"
+echo "Password: superrobot"
 echo "Note: wlan0 is used for normal WiFi connection, wlan1 is used for the access point"
+echo "Clients should receive IP addresses in the range 192.168.4.2-192.168.4.20"
