@@ -43,25 +43,31 @@ if [ -z "$CURRENT_CHANNEL" ]; then
     CURRENT_CHANNEL=7
 fi
 
-# Configure hostapd
+# Configure hostapd with more permissive settings
 cat >/etc/hostapd/hostapd.conf <<EOF
 interface=wlan1
 driver=nl80211
 ssid=robot
 hw_mode=g
 channel=$CURRENT_CHANNEL
-wmm_enabled=0
+wmm_enabled=1
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
 wpa=2
 wpa_passphrase=superrobot
 wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
-rsn_pairwise=CCMP
+wpa_pairwise=TKIP CCMP
+rsn_pairwise=TKIP CCMP
 country_code=US
 ieee80211d=1
 ieee80211h=1
+logger_syslog=-1
+logger_syslog_level=2
+logger_stdout=-1
+logger_stdout_level=2
+ctrl_interface=/var/run/hostapd
+ctrl_interface_group=0
 EOF
 
 # Configure dnsmasq with more detailed settings
@@ -147,6 +153,14 @@ if ! iw dev wlan0 link | grep -q "Connected to"; then
     echo "Warning: wlan0 connection was lost. Attempting to reconnect..."
     systemctl restart networking
 fi
+
+# Check hostapd status
+echo "Checking hostapd status..."
+systemctl status hostapd
+
+# Check hostapd logs
+echo "Checking hostapd logs..."
+journalctl -u hostapd -n 50
 
 # Check dnsmasq status
 echo "Checking dnsmasq status..."
