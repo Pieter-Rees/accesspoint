@@ -48,7 +48,7 @@ if [ -z "$CURRENT_CHANNEL" ]; then
     CURRENT_CHANNEL=7
 fi
 
-# Configure hostapd with basic settings
+# Configure hostapd with simpler settings
 cat >/etc/hostapd/hostapd.conf <<EOF
 interface=wlan1
 driver=nl80211
@@ -62,8 +62,8 @@ ignore_broadcast_ssid=0
 wpa=2
 wpa_passphrase=superrobot
 wpa_key_mgmt=WPA-PSK
-wpa_pairwise=CCMP
-rsn_pairwise=CCMP
+wpa_pairwise=TKIP
+rsn_pairwise=TKIP
 country_code=US
 ieee80211d=1
 ieee80211h=1
@@ -73,6 +73,9 @@ logger_stdout=-1
 logger_stdout_level=2
 ctrl_interface=/var/run/hostapd
 ctrl_interface_group=0
+# Driver specific options
+driver_param=use_monitor=0
+driver_param=no_auto_peer=1
 EOF
 
 # Configure dnsmasq with simpler settings
