@@ -24,6 +24,11 @@ systemctl stop dnsmasq
 # Remove any existing dnsmasq leases
 rm -f /var/lib/misc/dnsmasq.leases
 
+# Create necessary directories
+mkdir -p /etc/network/interfaces.d
+mkdir -p /etc/hostapd
+mkdir -p /var/lib/misc
+
 # Check if wlan1 interface exists, if not create it
 if ! iw dev | grep -q "wlan1"; then
     echo "Creating wlan1 interface..."
