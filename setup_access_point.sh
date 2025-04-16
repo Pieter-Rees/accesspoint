@@ -48,7 +48,7 @@ if [ -z "$CURRENT_CHANNEL" ]; then
     CURRENT_CHANNEL=7
 fi
 
-# Configure hostapd with more permissive settings
+# Configure hostapd with basic settings
 cat >/etc/hostapd/hostapd.conf <<EOF
 interface=wlan1
 driver=nl80211
@@ -73,18 +73,6 @@ logger_stdout=-1
 logger_stdout_level=2
 ctrl_interface=/var/run/hostapd
 ctrl_interface_group=0
-# Debug settings
-debug=2
-logger_stdout_level=2
-logger_syslog_level=2
-# Association settings
-assocresp_retry_timeout=2
-ap_max_inactivity=300
-disassoc_low_ack=0
-# Authentication settings
-auth_algs=3
-wpa_group_rekey=0
-wpa_strict_rekey=0
 EOF
 
 # Configure dnsmasq with simpler settings
