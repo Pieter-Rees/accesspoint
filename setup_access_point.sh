@@ -101,10 +101,21 @@ ip addr add 192.168.4.1/24 dev wlan1
 # Enable IP forwarding
 echo 1 >/proc/sys/net/ipv4/ip_forward
 
-# Configure NAT
+# Flush existing iptables rules
+iptables -F
+iptables -t nat -F
+iptables -X
+iptables -t nat -X
+
+# Configure NAT and forwarding rules
 iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan1 -o wlan0 -j ACCEPT
 iptables -A FORWARD -i wlan0 -o wlan1 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+# Allow DNS and DHCP traffic
+iptables -A INPUT -i wlan1 -p udp --dport 53 -j ACCEPT
+iptables -A INPUT -i wlan1 -p udp --dport 67:68 -j ACCEPT
+iptables -A INPUT -i wlan1 -p tcp --dport 53 -j ACCEPT
 
 # Save iptables rules
 apt-get install -y iptables-persistent
@@ -175,8 +186,14 @@ ip addr show wlan1
 echo "Checking DHCP server status..."
 ps aux | grep dnsmasq
 
+# Check iptables rules
+echo "Checking iptables rules..."
+iptables -L -n -v
+iptables -t nat -L -n -v
+
 echo "Access point setup complete!"
 echo "SSID: robot"
 echo "Password: superrobot"
 echo "Note: wlan0 is used for normal WiFi connection, wlan1 is used for the access point"
 echo "Clients should receive IP addresses in the range 192.168.4.2-192.168.4.20"
+echo "To check connected devices, run: arp -a"
