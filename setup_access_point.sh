@@ -29,13 +29,22 @@ if ! iw dev | grep -q "wlan1"; then
     ip link set dev wlan1 address $(printf '02:%02x:%02x:%02x:%02x:%02x' $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)))
 fi
 
+# Make sure wlan1 is up
+ip link set wlan1 up
+
+# Get the current channel of wlan0 to avoid interference
+CURRENT_CHANNEL=$(iw dev wlan0 info | grep channel | awk '{print $2}')
+if [ -z "$CURRENT_CHANNEL" ]; then
+    CURRENT_CHANNEL=7
+fi
+
 # Configure hostapd
 cat >/etc/hostapd/hostapd.conf <<EOF
 interface=wlan1
 driver=nl80211
 ssid=robot
 hw_mode=g
-channel=7
+channel=$CURRENT_CHANNEL
 wmm_enabled=0
 macaddr_acl=0
 auth_algs=1
@@ -45,6 +54,9 @@ wpa_passphrase=robot
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP
 rsn_pairwise=CCMP
+country_code=US
+ieee80211d=1
+ieee80211h=1
 EOF
 
 # Configure dnsmasq
@@ -73,12 +85,33 @@ iptables -A FORWARD -i wlan0 -o wlan1 -m state --state RELATED,ESTABLISHED -j AC
 apt-get install -y iptables-persistent
 netfilter-persistent save
 
+# Configure hostapd to use our config file
+echo "DAEMON_CONF=\"/etc/hostapd/hostapd.conf\"" >/etc/default/hostapd
+
 # Start services
 systemctl unmask hostapd
 systemctl enable hostapd
 systemctl enable dnsmasq
-systemctl start hostapd
-systemctl start dnsmasq
+
+# Check hostapd configuration
+echo "Checking hostapd configuration..."
+hostapd -d /etc/hostapd/hostapd.conf
+
+# If debug mode was successful, start the service
+if [ $? -eq 0 ]; then
+    echo "Starting hostapd service..."
+    systemctl start hostapd
+    if [ $? -ne 0 ]; then
+        echo "Failed to start hostapd service. Checking systemd logs..."
+        journalctl -u hostapd -n 50
+        exit 1
+    fi
+    systemctl start dnsmasq
+else
+    echo "Error: hostapd failed to start in debug mode"
+    echo "Please check the error messages above"
+    exit 1
+fi
 
 # Verify wlan0 is still connected
 if ! iw dev wlan0 link | grep -q "Connected to"; then
