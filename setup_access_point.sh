@@ -70,14 +70,12 @@ ctrl_interface=/var/run/hostapd
 ctrl_interface_group=0
 EOF
 
-# Configure dnsmasq with more detailed settings
+# Configure dnsmasq with simpler settings
 cat >/etc/dnsmasq.conf <<EOF
 interface=wlan1
-dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,12h
 dhcp-option=3,192.168.4.1
 dhcp-option=6,8.8.8.8,8.8.4.4
-server=8.8.8.8
-server=8.8.4.4
 no-resolv
 no-poll
 log-queries
@@ -85,7 +83,6 @@ log-dhcp
 listen-address=192.168.4.1
 bind-interfaces
 dhcp-authoritative
-dhcp-leasefile=/var/lib/misc/dnsmasq.leases
 EOF
 
 # Configure network interface
@@ -169,6 +166,14 @@ systemctl status dnsmasq
 # Check dnsmasq logs
 echo "Checking dnsmasq logs..."
 journalctl -u dnsmasq -n 50
+
+# Check network interfaces
+echo "Checking network interfaces..."
+ip addr show wlan1
+
+# Check DHCP server status
+echo "Checking DHCP server status..."
+ps aux | grep dnsmasq
 
 echo "Access point setup complete!"
 echo "SSID: robot"
