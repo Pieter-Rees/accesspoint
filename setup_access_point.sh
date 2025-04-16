@@ -21,6 +21,9 @@ apt-get install -y hostapd dnsmasq
 systemctl stop hostapd
 systemctl stop dnsmasq
 
+# Remove any existing dnsmasq leases
+rm -f /var/lib/misc/dnsmasq.leases
+
 # Check if wlan1 interface exists, if not create it
 if ! iw dev | grep -q "wlan1"; then
     echo "Creating wlan1 interface..."
@@ -29,7 +32,9 @@ if ! iw dev | grep -q "wlan1"; then
     ip link set dev wlan1 address $(printf '02:%02x:%02x:%02x:%02x:%02x' $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)))
 fi
 
-# Make sure wlan1 is up
+# Make sure wlan1 is up and has no IP address
+ip link set wlan1 down
+ip addr flush dev wlan1
 ip link set wlan1 up
 
 # Get the current channel of wlan0 to avoid interference
@@ -73,6 +78,8 @@ log-queries
 log-dhcp
 listen-address=192.168.4.1
 bind-interfaces
+dhcp-authoritative
+dhcp-leasefile=/var/lib/misc/dnsmasq.leases
 EOF
 
 # Configure network interface
@@ -140,6 +147,14 @@ if ! iw dev wlan0 link | grep -q "Connected to"; then
     echo "Warning: wlan0 connection was lost. Attempting to reconnect..."
     systemctl restart networking
 fi
+
+# Check dnsmasq status
+echo "Checking dnsmasq status..."
+systemctl status dnsmasq
+
+# Check dnsmasq logs
+echo "Checking dnsmasq logs..."
+journalctl -u dnsmasq -n 50
 
 echo "Access point setup complete!"
 echo "SSID: robot"
