@@ -72,6 +72,10 @@ EOF
 
 # Configure dnsmasq with simpler settings
 cat >/etc/dnsmasq.conf <<EOF
+# Disable DNS server
+port=0
+
+# DHCP configuration
 interface=wlan1
 dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,12h
 dhcp-option=3,192.168.4.1
@@ -148,6 +152,8 @@ if [ $? -eq 0 ]; then
     if [ $? -ne 0 ]; then
         echo "Failed to start dnsmasq service. Checking systemd logs..."
         journalctl -u dnsmasq -n 50
+        echo "Trying to start dnsmasq manually..."
+        dnsmasq -C /etc/dnsmasq.conf --no-daemon
         exit 1
     fi
 else
