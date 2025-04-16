@@ -6,6 +6,13 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Check if wlan0 is connected
+if ! iw dev wlan0 link | grep -q "Connected to"; then
+    echo "Error: wlan0 is not connected to a network"
+    echo "Please connect to a WiFi network first"
+    exit 1
+fi
+
 # Install required packages
 apt-get update
 apt-get install -y hostapd dnsmasq
@@ -17,7 +24,9 @@ systemctl stop dnsmasq
 # Check if wlan1 interface exists, if not create it
 if ! iw dev | grep -q "wlan1"; then
     echo "Creating wlan1 interface..."
+    # Create the interface with a different MAC address to avoid conflicts
     iw phy phy0 interface add wlan1 type __ap
+    ip link set dev wlan1 address $(printf '02:%02x:%02x:%02x:%02x:%02x' $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)))
 fi
 
 # Configure hostapd
@@ -70,6 +79,12 @@ systemctl enable hostapd
 systemctl enable dnsmasq
 systemctl start hostapd
 systemctl start dnsmasq
+
+# Verify wlan0 is still connected
+if ! iw dev wlan0 link | grep -q "Connected to"; then
+    echo "Warning: wlan0 connection was lost. Attempting to reconnect..."
+    systemctl restart networking
+fi
 
 echo "Access point setup complete!"
 echo "SSID: robot"
