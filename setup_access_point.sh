@@ -59,11 +59,10 @@ wmm_enabled=1
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
-wpa=2
+wpa=1
 wpa_passphrase=superrobot
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP
-rsn_pairwise=TKIP
 country_code=US
 ieee80211d=1
 ieee80211h=1
@@ -73,6 +72,9 @@ logger_stdout=-1
 logger_stdout_level=2
 ctrl_interface=/var/run/hostapd
 ctrl_interface_group=0
+# nl80211 specific options
+ieee80211n=0
+ht_capab=
 EOF
 
 # Configure dnsmasq with simpler settings
